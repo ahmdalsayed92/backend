@@ -128,6 +128,7 @@ io.on('connection', (socket) => {
       round: room.currentRound + 1,
       totalRounds: game.TOTAL_ROUNDS,
       answerWordCount: wordCount >= 2 ? wordCount : 0,
+      correctAnswer: question.correctAnswer,
     });
 
     const timerEnd = startTimer(roomId, game.ANSWER_TIME, () => {
