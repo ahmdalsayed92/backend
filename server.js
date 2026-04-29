@@ -119,6 +119,7 @@ io.on('connection', (socket) => {
     const question = game.selectCategory(roomId, category);
     if (!question) return;
 
+    const wordCount = question.correctAnswer.trim().split(/[\s\-\u2013\u2014]+/).filter(p => p.length > 0).length;
     io.to(roomId).emit('questionStart', {
       questionId: question.id,
       question: question.question,
@@ -126,6 +127,7 @@ io.on('connection', (socket) => {
       image: question.image || null,
       round: room.currentRound + 1,
       totalRounds: game.TOTAL_ROUNDS,
+      answerWordCount: wordCount >= 2 ? wordCount : 0,
     });
 
     const timerEnd = startTimer(roomId, game.ANSWER_TIME, () => {
@@ -135,7 +137,22 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('timerStart', { duration: game.ANSWER_TIME, phase: 'answering', end: timerEnd });
   });
 
-  // ── submitAnswer ─────────────────────────────────────────────────────────────
+
+  // ── checkAnswer ──────────────────────────────────────────────────────────────
+  socket.on('checkAnswer', ({ answer }, callback) => {
+    const roomId = socket.data.roomId;
+    const room = game.getRoom(roomId);
+    if (!room || !room.currentQuestion) return callback({ isCorrect: false });
+
+    const normalize = (s) => s.trim().toLowerCase()
+      .replace(/[ؐ-ًؚ-ٟ]/g, '')
+      .replace(/\s+/g, ' ');
+
+    const isCorrect = normalize(answer) === normalize(room.currentQuestion.correctAnswer);
+    callback({ isCorrect });
+  });
+
+  // ── submitAnswer ──────────────────────────────────────────────────────────────
   socket.on('submitAnswer', ({ answer }) => {
     const roomId = socket.data.roomId;
     const room = game.getRoom(roomId);
@@ -233,6 +250,7 @@ function autoSelectCategory(roomId) {
   const question = game.selectCategory(roomId, randomCat);
   if (!question) return;
 
+  const wordCount2 = question.correctAnswer.trim().split(/[\s\-\u2013\u2014]+/).filter(p => p.length > 0).length;
   io.to(roomId).emit('questionStart', {
     questionId: question.id,
     question: question.question,
@@ -240,6 +258,7 @@ function autoSelectCategory(roomId) {
     image: question.image || null,
     round: room.currentRound + 1,
     totalRounds: game.TOTAL_ROUNDS,
+    answerWordCount: wordCount2 >= 2 ? wordCount2 : 0,
   });
 
   const timerEnd = startTimer(roomId, game.ANSWER_TIME, () => {
@@ -289,8 +308,4 @@ function showResults(roomId) {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🎮 الهبيدة server running on port ${PORT}`);
-});
-
-app.get("/", (req, res) => {
-  res.send("Backend is running 🚀");
 });
