@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
     const upper = roomId.toUpperCase();
     const room = game.getRoom(upper);
     if (!room) return callback({ error: 'الغرفة غير موجودة' });
-    if (room.phase !== 'lobby') return callback({ error: 'اللعبة بدأت بالفعل' });
+    if (room.phase !== 'lobby') return callback({ error: 'اللعبة بدأت بالفعل', started: true });
 
     game.addPlayer(upper, socket.id, name, avatar);
     socket.join(upper);
@@ -146,8 +146,8 @@ io.on('connection', (socket) => {
     if (!room || !room.currentQuestion) return callback({ isCorrect: false });
 
     const normalize = (s) => s.trim().toLowerCase()
-      .replace(/[ؐ-ًؚ-ٟ]/g, '')
-      .replace(/\s+/g, ' ');
+        .replace(/[ؐ-ًؚ-ٟ]/g, '')
+        .replace(/\s+/g, ' ');
 
     const isCorrect = normalize(answer) === normalize(room.currentQuestion.correctAnswer);
     callback({ isCorrect });
@@ -219,6 +219,61 @@ io.on('connection', (socket) => {
 
       io.to(roomId).emit('timerStart', { duration: game.CATEGORY_TIME, phase: 'categorySelect', end: timerEnd });
     }
+  });
+
+
+  // ── rejoinRoom ────────────────────────────────────────────────────────────────
+  socket.on('rejoinRoom', ({ roomId, name, avatar }, callback) => {
+    const upper = roomId.toUpperCase();
+    const room = game.getRoom(upper);
+    if (!room) return callback({ error: 'الغرفة غير موجودة أو انتهت' });
+
+    // Add player back (or update their socket id)
+    game.addPlayer(upper, socket.id, name, avatar);
+    socket.join(upper);
+    socket.data.roomId = upper;
+    socket.data.name = name;
+    socket.data.avatar = avatar;
+
+    const players = game.getConnectedPlayers(upper);
+    const q = room.currentQuestion;
+
+    // Build current state snapshot to send back
+    const stateSnapshot = {
+      roomId: upper,
+      phase: room.phase,
+      players,
+      currentRound: room.currentRound,
+      totalRounds: game.TOTAL_ROUNDS,
+      categorySelectPlayer: room.categorySelectPlayer,
+      categories: game.getCategories(upper),
+      isHost: room.host === socket.id,
+      // Question data (if in question/voting/results phase)
+      question: q ? {
+        question: q.question,
+        category: q.category,
+        image: q.image || null,
+        answerWordCount: q.correctAnswer.trim().split(/[\s\-]+/).filter(p => p.length > 0).length >= 2
+            ? q.correctAnswer.trim().split(/[\s\-]+/).filter(p => p.length > 0).length : 0,
+        correctAnswer: q.correctAnswer,
+      } : null,
+      answerList: room.phase === 'voting' || room.phase === 'results' ? room.answerList : [],
+      roundResults: room.phase === 'results' ? {
+        roundScores: room.roundScores,
+        correctAnswer: q?.correctAnswer,
+        answerList: room.answerList,
+        votes: room.votes,
+        isLastRound: room.currentRound + 1 >= game.TOTAL_ROUNDS,
+        leaderboard: game.getLeaderboard(upper),
+      } : null,
+      leaderboard: game.getLeaderboard(upper),
+      // Timer remaining
+      timerEnd: roomTimers[upper]?.end ?? 0,
+    };
+
+    io.to(upper).emit('playerJoined', { players });
+    callback({ ok: true, state: stateSnapshot });
+    console.log(`${name} rejoined room ${upper} at phase ${room.phase}`);
   });
 
   // ── disconnect ───────────────────────────────────────────────────────────────
