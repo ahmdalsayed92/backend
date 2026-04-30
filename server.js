@@ -315,6 +315,7 @@ function autoSelectCategory(roomId) {
     round: room.currentRound + 1,
     totalRounds: game.TOTAL_ROUNDS,
     answerWordCount: wordCount2 >= 2 ? wordCount2 : 0,
+    correctAnswer: question.correctAnswer,
   });
 
   const timerEnd = startTimer(roomId, game.ANSWER_TIME, () => {
