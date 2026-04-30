@@ -129,6 +129,7 @@ io.on('connection', (socket) => {
       totalRounds: game.TOTAL_ROUNDS,
       answerWordCount: wordCount >= 2 ? wordCount : 0,
       correctAnswer: question.correctAnswer,
+      wrongAnswers: question.wrongAnswers || [],
     });
 
     const timerEnd = startTimer(roomId, game.ANSWER_TIME, () => {
@@ -327,6 +328,7 @@ function autoSelectCategory(roomId) {
     totalRounds: game.TOTAL_ROUNDS,
     answerWordCount: wordCount2 >= 2 ? wordCount2 : 0,
     correctAnswer: question.correctAnswer,
+    wrongAnswers: question.wrongAnswers || [],
   });
 
   const timerEnd = startTimer(roomId, game.ANSWER_TIME, () => {
