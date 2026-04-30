@@ -159,6 +159,17 @@ io.on('connection', (socket) => {
     const room = game.getRoom(roomId);
     if (!room) return;
 
+    // Block correct answers on the server side
+    if (room.currentQuestion) {
+      const normalize = (s) => s.trim().toLowerCase()
+          .replace(/[ؐ-ًؚ-ٟ]/g, '')
+          .replace(/\s+/g, ' ');
+      if (normalize(answer) === normalize(room.currentQuestion.correctAnswer)) {
+        socket.emit('answerRejected', { reason: 'correct' });
+        return;
+      }
+    }
+
     game.submitAnswer(roomId, socket.id, answer);
     io.to(roomId).emit('playerAnswered', { playerId: socket.id });
 
